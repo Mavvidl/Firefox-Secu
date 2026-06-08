@@ -28,6 +28,7 @@ web-ext run
 - Le code front-end évite les injections HTML en construisant les éléments DOM de façon sécurisée.
 - Le manifest MV3 utilise `service_worker` et une CSP stricte.
 - Les risques sont traités localement, et les données d'analyse sont conservées en local.
+- Le moteur Rust prend désormais en charge des hooks personnalisés via `register_hook()` pour ajouter des regex de détection URL/contenu en temps réel.
 
 ## Notes
 

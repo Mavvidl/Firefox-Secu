@@ -30,6 +30,15 @@ pub struct Threat {
     pub matched_pattern: Option<String>,
 }
 
+/// Hook de détection personnalisé
+pub struct CustomHook {
+    pub target: String,
+    pub pattern: Regex,
+    pub category: String,
+    pub severity: String,
+    pub description: String,
+}
+
 /// Configuration de l'analyseur
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AnalyzerConfig {
@@ -62,6 +71,7 @@ pub struct SecurityAnalyzer {
     suspicious_script_patterns: Vec<Regex>,
     known_threat_domains: HashSet<String>,
     crypto_stealer_patterns: Vec<Regex>,
+    custom_hooks: Vec<CustomHook>,
     // Statistiques
     total_analyzed: u64,
     total_threats: u64,
@@ -116,6 +126,7 @@ impl SecurityAnalyzer {
             suspicious_script_patterns,
             known_threat_domains,
             crypto_stealer_patterns,
+            custom_hooks: Vec::new(),
             total_analyzed: 0,
             total_threats: 0,
         }
@@ -141,6 +152,31 @@ impl SecurityAnalyzer {
             "LOW"
         } else {
             "SAFE"
+        }
+    }
+
+    fn run_custom_hooks(&self, target: &str, text: &str, threats: &mut Vec<Threat>, risk_score: &mut f64) {
+        for hook in &self.custom_hooks {
+            if hook.target != target {
+                continue;
+            }
+
+            if hook.pattern.is_match(text) {
+                threats.push(self.new_threat(
+                    &hook.category,
+                    &hook.severity,
+                    &hook.description,
+                    Some(hook.pattern.as_str().to_string()),
+                ));
+
+                *risk_score += match hook.severity.to_lowercase().as_str() {
+                    "critical" => 0.7,
+                    "high" => 0.4,
+                    "medium" => 0.2,
+                    "low" => 0.1,
+                    _ => 0.05,
+                };
+            }
         }
     }
 
@@ -280,6 +316,8 @@ impl SecurityAnalyzer {
                 ));
                 risk_score += 0.15;
             }
+
+            self.run_custom_hooks("url", &full, &mut threats, &mut risk_score);
         } else {
             threats.push(self.new_threat(
                 "invalid_url",
@@ -392,6 +430,8 @@ impl SecurityAnalyzer {
             }
         }
 
+        self.run_custom_hooks("content", content, &mut threats, &mut risk_score);
+
         // Calcul du hash du contenu
         let mut hasher = Sha256::new();
         hasher.update(content.as_bytes());
@@ -406,6 +446,35 @@ impl SecurityAnalyzer {
     pub fn configure(&mut self, config: JsValue) {
         if let Ok(cfg) = serde_wasm_bindgen::from_value::<AnalyzerConfig>(config) {
             self.config = cfg;
+        }
+    }
+
+    /// Enregistre un hook de détection personnalisé (url ou content)
+    pub fn register_hook(&mut self, target: &str, regex: &str, category: &str, severity: &str, description: &str) -> bool {
+        if target != "url" && target != "content" {
+            return false;
+        }
+
+        if let Ok(pattern) = Regex::new(regex) {
+            self.custom_hooks.push(CustomHook {
+                target: target.to_string(),
+                pattern,
+                category: category.to_string(),
+                severity: severity.to_string(),
+                description: description.to_string(),
+            });
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Analyse un événement en temps réel selon son type
+    pub fn scan_event(&mut self, event_type: &str, data: &str) -> JsValue {
+        match event_type {
+            "url" => self.analyze_url(data),
+            "content" => self.analyze_content(data),
+            _ => self.analyze_content(data),
         }
     }
 

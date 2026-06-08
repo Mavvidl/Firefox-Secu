@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass, asdict
+from ipaddress import ip_address, AddressValueError
 from pathlib import Path
 from typing import List, Optional
 from urllib.parse import urlparse
@@ -175,7 +176,7 @@ class SecurityAnalyzer:
 
         if host:
             try:
-                _ = IpAddr(host)
+                _ = ip_address(host)
                 threats.append(self._make_threat(
                     "ip_address",
                     "low",
@@ -183,7 +184,7 @@ class SecurityAnalyzer:
                     host,
                 ))
                 risk_score += 0.15
-            except ValueError:
+            except AddressValueError:
                 pass
 
         risk_score = min(max(risk_score, 0.0), 1.0)
