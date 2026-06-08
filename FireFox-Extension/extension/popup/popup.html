@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureWeb Analyzer</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔒 SecureWeb</h1>
+            <span id="status" class="status-safe">Actif</span>
+        </header>
+        
+        <section id="current-tab-section">
+            <h2>Page actuelle</h2>
+            <div id="current-url" class="url-display">Aucune analyse</div>
+            <div id="analysis-result" class="result-box">
+                <div class="result-row">
+                    <span class="label">Niveau de menace :</span>
+                    <span id="threat-level" class="threat-safe">En attente...</span>
+                </div>
+                <div class="result-row">
+                    <span class="label">Score de risque :</span>
+                    <span id="risk-score">—</span>
+                </div>
+                <div class="result-row">
+                    <span class="label">Menaces :</span>
+                    <span id="threat-count">0</span>
+                </div>
+            </div>
+        </section>
+        
+        <section id="threat-details" class="hidden">
+            <h3>Détails des menaces</h3>
+            <ul id="threat-list"></ul>
+        </section>
+        
+        <section id="stats-section">
+            <h2>Statistiques globales</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-value" id="total-analyzed">0</span>
+                    <span class="stat-label">Analysées</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="total-threats">0</span>
+                    <span class="stat-label">Menaces</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="threat-ratio">0%</span>
+                    <span class="stat-label">Ratio</span>
+                </div>
+            </div>
+        </section>
+        
+        <section id="config-section">
+            <h2>Configuration</h2>
+            <label class="checkbox-label">
+                <input type="checkbox" id="enable-url" checked>
+                Analyse des URL
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="enable-content" checked>
+                Analyse du contenu
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="enable-scripts" checked>
+                Détection de scripts
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="enable-crypto">
+                Protection crypto
+            </label>
+            <button id="save-config" class="btn">Sauvegarder</button>
+        </section>
+        
+        <footer>
+            <span class="version">v0.1.0</span>
+            <span id="engine-status">Moteur Rust/Wasm ⚡</span>
+        </footer>
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>

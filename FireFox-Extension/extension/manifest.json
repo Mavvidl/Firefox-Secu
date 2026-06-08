@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "SecureWeb Analyzer",
+  "version": "0.1.0",
+  "description": "Analyseur de sécurité du trafic Web en temps réel propulsé par Rust/Wasm",
+  "developer": {
+    "name": "Votre Nom",
+    "url": "https://github.com/VOTRE_USERNAME/firefox-security-analyzer"
+  },
+  "icons": {
+    "48": "icons/icon-48.svg",
+    "96": "icons/icon-96.svg"
+  },
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "storage",
+    "tabs",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": ["lib/wasm_analyzer.js", "background.js"],
+    "type": "module",
+    "persistent": false
+  },
+  "action": {
+    "default_title": "SecureWeb Analyzer",
+    "default_popup": "popup/popup.html",
+    "default_icons": {
+      "48": "icons/icon-48.svg",
+      "96": "icons/icon-96.svg"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "secureweb-analyzer@example.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}
