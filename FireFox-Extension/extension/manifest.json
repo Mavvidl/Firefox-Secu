@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "description": "Analyseur de sécurité du trafic Web en temps réel propulsé par Rust/Wasm",
   "developer": {
-    "name": "Votre Nom",
-    "url": "https://github.com/VOTRE_USERNAME/firefox-security-analyzer"
+    "name": "Mavvidl",
+    "url": "https://github.com/Mavvidl/Firefox-Secu"
   },
   "icons": {
     "48": "icons/icon-48.svg",

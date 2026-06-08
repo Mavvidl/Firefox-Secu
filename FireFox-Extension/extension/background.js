@@ -21,6 +21,22 @@ async function initWasm() {
         if (stored.config) {
             analyzer.configure(stored.config);
         }
+
+        // Exemple de hooks personnalisés pour la détection en temps réel
+        analyzer.register_hook(
+            'url',
+            '(?i)password|login|credential',
+            'custom',
+            'high',
+            'Pattern URL critique détecté'
+        );
+        analyzer.register_hook(
+            'content',
+            '(?i)document\\.cookie|window\\.location|eval\\(',
+            'custom',
+            'medium',
+            'Pattern de contenu suspect détecté'
+        );
     } catch (err) {
         console.error('[SecureWeb] Erreur d\'initialisation Wasm:', err);
     }

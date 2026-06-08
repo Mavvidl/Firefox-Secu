@@ -23,6 +23,18 @@ cd FireFox-Extension/extension
 web-ext run
 ```
 
+## Tester l'extension
+
+1. Compiler le package :
+   ```bash
+   cd FireFox-Extension
+   ./build.sh
+   ```
+2. Ouvrir Firefox et aller sur `about:debugging#/runtime/this-firefox`
+3. Cliquer sur `Charger un module complémentaire temporaire`
+4. Sélectionner `extension/manifest.json`
+5. Naviguer vers un site de test et ouvrir la popup pour voir les alertes
+
 ## Sécurité
 
 - Le code front-end évite les injections HTML en construisant les éléments DOM de façon sécurisée.
