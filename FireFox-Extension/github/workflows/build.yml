@@ -1,0 +1,43 @@
+name: Build Firefox Extension
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Install wasm-pack
+        run: |
+          cargo install wasm-pack --locked || true
+
+      - name: Build Wasm analyzer
+        working-directory: FireFox-Extension/src/rust
+        run: |
+          wasm-pack build --target web --release --out-dir ../../extension/lib/ --no-typescript
+
+      - name: Package extension
+        working-directory: FireFox-Extension/extension
+        run: |
+          mkdir -p ../dist
+          zip -r ../dist/secureweb-analyzer-firefox.zip . -x "*.git*" -x "*.DS_Store" -x "*/.git/*"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: secureweb-analyzer-extension
+          path: FireFox-Extension/dist/secureweb-analyzer-firefox.zip

@@ -5,6 +5,7 @@
 
 let analyzer = null;
 let wasmInitialized = false;
+let lastNotification = { url: '', timestamp: 0 };
 
 // Initialisation du module Wasm
 async function initWasm() {
@@ -38,8 +39,11 @@ function analyzeRequest(details) {
             timestamp: Date.now(),
             result: urlResult
         };
-        browser.storage.local.set({ [`tab_${details.tabId}`]: tabData });
-        
+
+        if (details.tabId !== undefined && details.tabId !== null) {
+            browser.storage.local.set({ [`tab_${details.tabId}`]: tabData });
+        }
+
         return urlResult;
     } catch (err) {
         console.error('[SecureWeb] Erreur d\'analyse:', err);
@@ -59,12 +63,16 @@ function analyzeResponseContent(details, content) {
             
             // Notification si critique
             if (contentResult.risk_score >= 0.7) {
-                browser.notifications.create({
-                    type: 'basic',
-                    iconUrl: 'icons/icon-48.svg',
-                    title: '🔴 SecureWeb : Menace critique détectée',
-                    message: `${details.url}\n${contentResult.threat_level}: ${contentResult.threats[0]?.description || 'Activité suspecte'}`
-                });
+                const now = Date.now();
+                if (details.url !== lastNotification.url || now - lastNotification.timestamp > 60000) {
+                    lastNotification = { url: details.url, timestamp: now };
+                    browser.notifications.create({
+                        type: 'basic',
+                        iconUrl: 'icons/icon-48.svg',
+                        title: '🔴 SecureWeb : Menace critique détectée',
+                        message: `${details.url}\n${contentResult.threat_level}: ${contentResult.threats[0]?.description || 'Activité suspecte'}`
+                    }).catch(err => console.error('[SecureWeb] Notification erreur :', err));
+                }
             }
         }
         
@@ -99,7 +107,6 @@ browser.webRequest.onHeadersReceived.addListener(
             // Créer un filtre pour analyser le contenu
             const filter = browser.webRequest.filterResponseData(details.requestId);
             const decoder = new TextDecoder('utf-8');
-            const encoder = new TextEncoder();
             let chunks = [];
             
             filter.ondata = (event) => {
@@ -170,13 +177,11 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return true; // Pour les réponses asynchrones
             
         case 'configure':
+            browser.storage.local.set({ config: message.config });
             if (analyzer) {
                 analyzer.configure(message.config);
-                browser.storage.local.set({ config: message.config });
-                sendResponse({ success: true });
-            } else {
-                sendResponse({ success: false });
             }
+            sendResponse({ success: true });
             break;
             
         default:
@@ -184,17 +189,24 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 });
 
-// Nettoyage périodique des données de tabs
-setInterval(() => {
+function cleanupOldTabData() {
+    const now = Date.now();
     browser.storage.local.get(null).then((data) => {
-        const now = Date.now();
         for (const [key, value] of Object.entries(data)) {
-            if (key.startsWith('tab_') && now - value.timestamp > 300000) {
+            if (key.startsWith('tab_') && value && value.timestamp && now - value.timestamp > 300000) {
                 browser.storage.local.remove(key);
             }
         }
-    });
-}, 60000); // Nettoie toutes les minutes
+    }).catch((err) => console.error('[SecureWeb] Erreur nettoyage stockage:', err));
+}
+
+browser.alarms.create('cleanup_tab_data', { periodInMinutes: 1 });
+
+browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'cleanup_tab_data') {
+        cleanupOldTabData();
+    }
+});
 
 // Initialisation
 initWasm();

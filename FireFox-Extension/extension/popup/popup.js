@@ -108,6 +108,11 @@ function displayAnalysisResult(result) {
     // Déterminer la classe CSS
     const level = (result.threat_level || 'SAFE').toLowerCase();
     let statusClass = 'threat-safe';
+
+    const existingTime = document.querySelector('.analysis-time');
+    if (existingTime) {
+        existingTime.remove();
+    }
     
     switch (level) {
         case 'critical': statusClass = 'threat-critical'; break;
@@ -127,22 +132,31 @@ function displayAnalysisResult(result) {
     
     if (threats.length > 0) {
         threatDetails.classList.remove('hidden');
-        threatList.innerHTML = threats.map(t => 
-            `<li><strong>[${t.severity.toUpperCase()}]</strong> ${t.description}${t.matched_pattern ? `<br><code>${escapeHtml(t.matched_pattern)}</code>` : ''}</li>`
-        ).join('');
+        threatList.textContent = '';
+        threats.forEach((threat) => {
+            const li = document.createElement('li');
+            const label = document.createElement('strong');
+            label.textContent = `[${threat.severity.toUpperCase()}] `;
+            li.appendChild(label);
+            li.appendChild(document.createTextNode(threat.description));
+
+            if (threat.matched_pattern) {
+                li.appendChild(document.createElement('br'));
+                const code = document.createElement('code');
+                code.textContent = threat.matched_pattern;
+                li.appendChild(code);
+            }
+
+            threatList.appendChild(li);
+        });
     } else {
         threatDetails.classList.add('hidden');
     }
     
     // Temps d'analyse
     const timeEl = document.createElement('div');
+    timeEl.className = 'analysis-time';
     timeEl.style.cssText = 'font-size: 10px; color: var(--text-secondary); margin-top: 4px;';
     timeEl.textContent = `Analyse en ${result.analysis_time_us}µs`;
     document.querySelector('.result-box').appendChild(timeEl);
-}
-
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
 }

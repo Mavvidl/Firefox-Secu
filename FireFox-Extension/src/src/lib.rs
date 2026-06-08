@@ -2,6 +2,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
 use std::collections::HashSet;
+use std::net::IpAddr;
 use url::Url;
 use wasm_bindgen::prelude::*;
 
@@ -120,6 +121,47 @@ impl SecurityAnalyzer {
         }
     }
 
+    fn new_threat(&self, category: &str, severity: &str, description: &str, matched_pattern: Option<String>) -> Threat {
+        Threat {
+            category: category.into(),
+            severity: severity.into(),
+            description: description.into(),
+            matched_pattern,
+        }
+    }
+
+    fn threat_level_from_score(score: f64) -> &'static str {
+        if score >= 0.7 {
+            "CRITICAL"
+        } else if score >= 0.4 {
+            "HIGH"
+        } else if score >= 0.2 {
+            "MEDIUM"
+        } else if score >= 0.05 {
+            "LOW"
+        } else {
+            "SAFE"
+        }
+    }
+
+    fn finalize_result(&mut self, risk_score: f64, threats: Vec<Threat>, content_hash: String, start: web_time::Instant) -> JsValue {
+        let threat_level = Self::threat_level_from_score(risk_score).to_string();
+        if !threats.is_empty() {
+            self.total_threats += 1;
+        }
+
+        let elapsed = start.elapsed().as_micros() as u64;
+        let result = AnalysisResult {
+            risk_score,
+            threat_level,
+            threats,
+            content_hash,
+            analysis_time_us: elapsed,
+        };
+
+        serde_wasm_bindgen::to_value(&result).unwrap()
+    }
+
     /// Analyse une URL complète
     pub fn analyze_url(&mut self, url_str: &str) -> JsValue {
         let start = web_time::Instant::now();
@@ -128,44 +170,65 @@ impl SecurityAnalyzer {
         let mut threats: Vec<Threat> = Vec::new();
         let mut risk_score: f64 = 0.0;
 
+        if !self.config.enable_url_analysis {
+            let mut hasher = Sha256::new();
+            hasher.update(url_str.as_bytes());
+            let content_hash = format!("{:x}", hasher.finalize());
+            return self.finalize_result(risk_score, threats, content_hash, start);
+        }
+
         // Parser l'URL
         if let Ok(parsed) = Url::parse(url_str) {
             let host = parsed.host_str().unwrap_or("");
             let path = parsed.path();
             let query = parsed.query().unwrap_or("");
-            let full = format!("{}://{}{}?{}", parsed.scheme(), host, path, query);
+            let full = if query.is_empty() {
+                format!("{}://{}{}", parsed.scheme(), host, path)
+            } else {
+                format!("{}://{}{}?{}", parsed.scheme(), host, path, query)
+            };
+
+            if self.config.custom_blocklist.iter().any(|d| d.eq_ignore_ascii_case(host)) {
+                threats.push(self.new_threat(
+                    "blacklist",
+                    "critical",
+                    &format!("Domaine ajouté à la liste noire : {}", host),
+                    Some(host.into()),
+                ));
+                risk_score += 0.9;
+            }
 
             // 1. Vérification HTTPS
             if parsed.scheme() != "https" && parsed.scheme() != "wss" {
-                threats.push(Threat {
-                    category: "connection".into(),
-                    severity: "medium".into(),
-                    description: "Connexion non chiffrée (HTTP au lieu de HTTPS)".into(),
-                    matched_pattern: Some(parsed.scheme().into()),
-                });
+                threats.push(self.new_threat(
+                    "connection",
+                    "medium",
+                    "Connexion non chiffrée (HTTP au lieu de HTTPS)",
+                    Some(parsed.scheme().into()),
+                ));
                 risk_score += 0.15;
             }
 
             // 2. Domaines suspects
             if self.known_threat_domains.contains(host) {
-                threats.push(Threat {
-                    category: "blacklist".into(),
-                    severity: "critical".into(),
-                    description: format!("Domaine présent dans la liste noire : {}", host),
-                    matched_pattern: Some(host.into()),
-                });
+                threats.push(self.new_threat(
+                    "blacklist",
+                    "critical",
+                    &format!("Domaine présent dans la liste noire : {}", host),
+                    Some(host.into()),
+                ));
                 risk_score += 0.8;
             }
 
             // 3. Patterns malveillants dans l'URL
             for pattern in &self.malware_url_patterns {
                 if let Some(mat) = pattern.find(&full) {
-                    threats.push(Threat {
-                        category: "malware_url".into(),
-                        severity: "high".into(),
-                        description: "Pattern d'URL malveillante détecté".into(),
-                        matched_pattern: Some(mat.as_str().to_string()),
-                    });
+                    threats.push(self.new_threat(
+                        "malware_url",
+                        "high",
+                        "Pattern d'URL malveillante détecté",
+                        Some(mat.as_str().to_string()),
+                    ));
                     risk_score += 0.5;
                 }
             }
@@ -173,12 +236,12 @@ impl SecurityAnalyzer {
             // 4. Patterns de phishing
             for pattern in &self.phishing_patterns {
                 if let Some(mat) = pattern.find(&full) {
-                    threats.push(Threat {
-                        category: "phishing".into(),
-                        severity: "high".into(),
-                        description: "Tentative de phishing détectée".into(),
-                        matched_pattern: Some(mat.as_str().to_string()),
-                    });
+                    threats.push(self.new_threat(
+                        "phishing",
+                        "high",
+                        "Tentative de phishing détectée",
+                        Some(mat.as_str().to_string()),
+                    ));
                     risk_score += 0.4;
                 }
             }
@@ -186,33 +249,44 @@ impl SecurityAnalyzer {
             // 5. Sous-domaines suspects (ex: compte-paypal.xyz.com)
             let subdomain_count = host.matches('.').count();
             if subdomain_count > 3 {
-                threats.push(Threat {
-                    category: "suspicious_domain".into(),
-                    severity: "low".into(),
-                    description: "Nombre anormal de sous-domaines".into(),
-                    matched_pattern: Some(host.into()),
-                });
+                threats.push(self.new_threat(
+                    "suspicious_domain",
+                    "low",
+                    "Nombre anormal de sous-domaines",
+                    Some(host.into()),
+                ));
                 risk_score += 0.1;
             }
 
             // 6. URL raccourcie ou suspecte
             let shortening_domains = ["bit.ly", "tinyurl.com", "goo.gl", "t.co", "shorturl.at"];
             if shortening_domains.iter().any(|d| host.contains(d)) {
-                threats.push(Threat {
-                    category: "url_shortener".into(),
-                    severity: "medium".into(),
-                    description: "Utilisation d'un service de raccourcissement d'URL".into(),
-                    matched_pattern: Some(host.into()),
-                });
+                threats.push(self.new_threat(
+                    "url_shortener",
+                    "medium",
+                    "Utilisation d'un service de raccourcissement d'URL",
+                    Some(host.into()),
+                ));
                 risk_score += 0.25;
             }
+
+            // 7. Adresse IP directe
+            if let Ok(ip) = host.parse::<IpAddr>() {
+                threats.push(self.new_threat(
+                    "ip_address",
+                    "low",
+                    &format!("Accès direct à une adresse IP : {}", ip),
+                    Some(host.into()),
+                ));
+                risk_score += 0.15;
+            }
         } else {
-            threats.push(Threat {
-                category: "invalid_url".into(),
-                severity: "low".into(),
-                description: "L'URL n'a pas pu être parsée".into(),
-                matched_pattern: None,
-            });
+            threats.push(self.new_threat(
+                "invalid_url",
+                "low",
+                "L'URL n'a pas pu être parsée",
+                None,
+            ));
             risk_score += 0.1;
         }
 
@@ -224,33 +298,7 @@ impl SecurityAnalyzer {
         // Clamper le score entre 0 et 1
         risk_score = risk_score.clamp(0.0, 1.0);
 
-        let threat_level = if risk_score >= 0.7 {
-            "CRITICAL"
-        } else if risk_score >= 0.4 {
-            "HIGH"
-        } else if risk_score >= 0.2 {
-            "MEDIUM"
-        } else if risk_score >= 0.05 {
-            "LOW"
-        } else {
-            "SAFE"
-        };
-
-        if !threats.is_empty() {
-            self.total_threats += 1;
-        }
-
-        let elapsed = start.elapsed().as_micros() as u64;
-
-        let result = AnalysisResult {
-            risk_score,
-            threat_level: threat_level.to_string(),
-            threats,
-            content_hash,
-            analysis_time_us: elapsed,
-        };
-
-        serde_wasm_bindgen::to_value(&result).unwrap()
+        self.finalize_result(risk_score, threats, content_hash, start)
     }
 
     /// Analyse le contenu textuel d'une page (scripts, HTML, etc.)
@@ -261,16 +309,23 @@ impl SecurityAnalyzer {
         let mut threats: Vec<Threat> = Vec::new();
         let mut risk_score: f64 = 0.0;
 
+        if !self.config.enable_content_analysis {
+            let mut hasher = Sha256::new();
+            hasher.update(content.as_bytes());
+            let content_hash = format!("{:x}", hasher.finalize());
+            return self.finalize_result(risk_score, threats, content_hash, start);
+        }
+
         // 1. Scripts suspects
         if self.config.enable_script_detection {
             for pattern in &self.suspicious_script_patterns {
                 if let Some(mat) = pattern.find(content) {
-                    threats.push(Threat {
-                        category: "suspicious_script".into(),
-                        severity: "high".into(),
-                        description: "Pattern de script JavaScript suspect détecté".into(),
-                        matched_pattern: Some(mat.as_str().to_string()),
-                    });
+                    threats.push(self.new_threat(
+                        "suspicious_script",
+                        "high",
+                        "Pattern de script JavaScript suspect détecté",
+                        Some(mat.as_str().to_string()),
+                    ));
                     risk_score += 0.35;
                 }
             }
@@ -280,38 +335,38 @@ impl SecurityAnalyzer {
         if self.config.enable_crypto_checks {
             for pattern in &self.crypto_stealer_patterns {
                 if let Some(mat) = pattern.find(content) {
-                    threats.push(Threat {
-                        category: "crypto_stealer".into(),
-                        severity: "high".into(),
-                        description: "Pattern de vol de cryptomonnaie détecté".into(),
-                        matched_pattern: Some(mat.as_str().to_string()),
-                    });
+                    threats.push(self.new_threat(
+                        "crypto_stealer",
+                        "high",
+                        "Pattern de vol de cryptomonnaie détecté",
+                        Some(mat.as_str().to_string()),
+                    ));
                     risk_score += 0.45;
                 }
             }
         }
 
         // 3. Détection de data URIs suspects
-        let data_uri_count = content.matches("data:").count();
+        let data_uri_count = Regex::new(r"(?i)data:").unwrap().find_iter(content).count();
         if data_uri_count > 5 {
-            threats.push(Threat {
-                category: "data_uri_abuse".into(),
-                severity: "medium".into(),
-                description: format!("Nombre anormal de data URIs ({})", data_uri_count),
-                matched_pattern: None,
-            });
+            threats.push(self.new_threat(
+                "data_uri_abuse",
+                "medium",
+                &format!("Nombre anormal de data URIs ({})", data_uri_count),
+                None,
+            ));
             risk_score += 0.2;
         }
 
         // 4. Détection d'iframes cachés
-        let iframe_count = content.matches("<iframe").count();
+        let iframe_count = Regex::new(r"(?i)<iframe").unwrap().find_iter(content).count();
         if iframe_count > 3 {
-            threats.push(Threat {
-                category: "hidden_iframes".into(),
-                severity: "medium".into(),
-                description: format!("Nombre anormal d'iframes ({})", iframe_count),
-                matched_pattern: None,
-            });
+            threats.push(self.new_threat(
+                "hidden_iframes",
+                "medium",
+                &format!("Nombre anormal d'iframes ({})", iframe_count),
+                None,
+            ));
             risk_score += 0.25;
         }
 
@@ -325,12 +380,12 @@ impl SecurityAnalyzer {
         for pat_str in &redirect_patterns {
             if let Ok(re) = Regex::new(pat_str) {
                 if re.is_match(content) {
-                    threats.push(Threat {
-                        category: "redirect".into(),
-                        severity: "low".into(),
-                        description: "Redirection JavaScript détectée".into(),
-                        matched_pattern: Some(pat_str.to_string()),
-                    });
+                    threats.push(self.new_threat(
+                        "redirect",
+                        "low",
+                        "Redirection JavaScript détectée",
+                        Some(pat_str.to_string()),
+                    ));
                     risk_score += 0.1;
                     break;
                 }
@@ -344,33 +399,7 @@ impl SecurityAnalyzer {
 
         risk_score = risk_score.clamp(0.0, 1.0);
 
-        let threat_level = if risk_score >= 0.7 {
-            "CRITICAL"
-        } else if risk_score >= 0.4 {
-            "HIGH"
-        } else if risk_score >= 0.2 {
-            "MEDIUM"
-        } else if risk_score >= 0.05 {
-            "LOW"
-        } else {
-            "SAFE"
-        };
-
-        if !threats.is_empty() {
-            self.total_threats += 1;
-        }
-
-        let elapsed = start.elapsed().as_micros() as u64;
-
-        let result = AnalysisResult {
-            risk_score,
-            threat_level: threat_level.to_string(),
-            threats,
-            content_hash,
-            analysis_time_us: elapsed,
-        };
-
-        serde_wasm_bindgen::to_value(&result).unwrap()
+        self.finalize_result(risk_score, threats, content_hash, start)
     }
 
     /// Configure l'analyseur dynamiquement

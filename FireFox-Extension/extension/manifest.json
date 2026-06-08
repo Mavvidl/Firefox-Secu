@@ -12,19 +12,20 @@
     "96": "icons/icon-96.svg"
   },
   "permissions": [
+    "alarms",
     "webRequest",
     "webRequestBlocking",
     "storage",
     "tabs",
+    "notifications",
     "activeTab"
   ],
   "host_permissions": [
     "<all_urls>"
   ],
   "background": {
-    "scripts": ["lib/wasm_analyzer.js", "background.js"],
-    "type": "module",
-    "persistent": false
+    "service_worker": "background.js",
+    "type": "module"
   },
   "action": {
     "default_title": "SecureWeb Analyzer",
@@ -35,7 +36,7 @@
     }
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+    "extension_pages": "script-src 'self'; object-src 'self'"
   },
   "browser_specific_settings": {
     "gecko": {
