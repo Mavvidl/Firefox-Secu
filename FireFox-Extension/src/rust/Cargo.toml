@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2021"
 description = "Moteur d'analyse de sécurité réseau en Rust compilé en WebAssembly"
 
+[package.metadata.wasm-pack]
+wasm-opt = false
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 
