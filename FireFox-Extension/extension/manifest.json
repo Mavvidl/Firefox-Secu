@@ -1,5 +1,5 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 2,
   "name": "SecureWeb Analyzer",
   "version": "0.1.0",
   "description": "Analyseur de sécurité du trafic Web en temps réel propulsé par Rust/Wasm",
@@ -18,16 +18,14 @@
     "storage",
     "tabs",
     "notifications",
-    "activeTab"
-  ],
-  "host_permissions": [
+    "activeTab",
     "<all_urls>"
   ],
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "scripts": ["background.js"],
+    "persistent": false
   },
-  "action": {
+  "browser_action": {
     "default_title": "SecureWeb Analyzer",
     "default_popup": "popup/popup.html",
     "default_icons": {
@@ -35,9 +33,7 @@
       "96": "icons/icon-96.svg"
     }
   },
-  "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
-  },
+  "content_security_policy": "script-src 'self'; object-src 'self'",
   "browser_specific_settings": {
     "gecko": {
       "id": "secureweb-analyzer@example.com",
