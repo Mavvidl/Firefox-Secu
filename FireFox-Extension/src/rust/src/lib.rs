@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use std::net::IpAddr;
 use url::Url;
 use wasm_bindgen::prelude::*;
+use std::time::Instant;
 
 /// Résultat d'analyse pour une URL ou un contenu
 /// EN: Analysis result for a URL or content
@@ -22,7 +23,26 @@ pub struct AnalysisResult {
     /// Empreinte SHA-256 du contenu analysé
     /// EN: SHA-256 fingerprint of the analyzed content
     pub content_hash: String,
+    /// Temps d'analyse en microsecondes
+    /// EN: Analysis time in microseconds
+    pub analysis_time_us: u64,
+}
 
+/// Représente une menace détectée
+/// EN: Represents a detected threat
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Threat {
+    pub category: String,
+    pub severity: String,
+    pub description: String,
+    pub matched_pattern: Option<String>,
+}
+
+/// Hook personnalisé pour détection
+/// EN: Custom detection hook
+#[derive(Debug, Clone)]
+pub struct CustomHook {
+    pub target: String,
     pub pattern: Regex,
     pub category: String,
     pub severity: String,
@@ -170,7 +190,7 @@ impl SecurityAnalyzer {
         }
     }
 
-    fn finalize_result(&mut self, risk_score: f64, threats: Vec<Threat>, content_hash: String, start: web_time::Instant) -> JsValue {
+    fn finalize_result(&mut self, risk_score: f64, threats: Vec<Threat>, content_hash: String, start: Instant) -> JsValue {
         let threat_level = Self::threat_level_from_score(risk_score).to_string();
         if !threats.is_empty() {
             self.total_threats += 1;
@@ -190,7 +210,7 @@ impl SecurityAnalyzer {
 
     /// Analyse une URL complète
     pub fn analyze_url(&mut self, url_str: &str) -> JsValue {
-        let start = web_time::Instant::now();
+        let start = Instant::now();
         self.total_analyzed += 1;
 
         let mut threats: Vec<Threat> = Vec::new();
@@ -331,7 +351,7 @@ impl SecurityAnalyzer {
 
     /// Analyse le contenu textuel d'une page (scripts, HTML, etc.)
     pub fn analyze_content(&mut self, content: &str) -> JsValue {
-        let start = web_time::Instant::now();
+        let start = Instant::now();
         self.total_analyzed += 1;
 
         let mut threats: Vec<Threat> = Vec::new();
