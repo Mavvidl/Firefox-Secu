@@ -7,46 +7,66 @@ use url::Url;
 use wasm_bindgen::prelude::*;
 
 /// Résultat d'analyse pour une URL ou un contenu
+/// EN: Analysis result for a URL or content
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AnalysisResult {
     /// Score de risque (0.0 = safe, 1.0 = critique)
+    /// EN: Risk score (0.0 = safe, 1.0 = critical)
     pub risk_score: f64,
     /// Niveau de menace textuel
+    /// EN: Textual threat level
     pub threat_level: String,
     /// Liste des menaces détectées
+    /// EN: List of detected threats
     pub threats: Vec<Threat>,
     /// Empreinte SHA-256 du contenu analysé
+    /// EN: SHA-256 fingerprint of the analyzed content
     pub content_hash: String,
     /// Temps d'analyse en microsecondes
+    /// EN: Analysis time in microseconds
     pub analysis_time_us: u64,
 }
 
 /// Une menace détectée
+/// EN: A detected threat
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Threat {
     pub category: String,
+    // EN: category of the threat (e.g., "phishing", "malware")
     pub severity: String,
+    // EN: severity level (e.g., "low", "medium", "high", "critical")
     pub description: String,
+    // EN: human-readable description of the threat
     pub matched_pattern: Option<String>,
+    // EN: regex or pattern that matched (if any)
 }
 
 /// Hook de détection personnalisé
+/// EN: Custom detection hook
 pub struct CustomHook {
     pub target: String,
+    // EN: target to apply hook to ("url" or "content")
     pub pattern: Regex,
+    // EN: compiled regex pattern for detection
     pub category: String,
     pub severity: String,
     pub description: String,
 }
 
 /// Configuration de l'analyseur
+/// EN: Analyzer configuration
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AnalyzerConfig {
     pub enable_url_analysis: bool,
+    // EN: enable URL analysis
     pub enable_content_analysis: bool,
+    // EN: enable content (HTML/script) analysis
     pub enable_script_detection: bool,
+    // EN: enable script pattern detection
     pub enable_crypto_checks: bool,
+    // EN: enable additional crypto-related checks
     pub custom_blocklist: Vec<String>,
+    // EN: custom domains to block
 }
 
 impl Default for AnalyzerConfig {
@@ -62,10 +82,12 @@ impl Default for AnalyzerConfig {
 }
 
 /// Analyseur principal
+/// EN: Main security analyzer
 #[wasm_bindgen]
 pub struct SecurityAnalyzer {
     config: AnalyzerConfig,
     // Patterns de détection pré-compilés
+    // EN: Precompiled detection patterns
     phishing_patterns: Vec<Regex>,
     malware_url_patterns: Vec<Regex>,
     suspicious_script_patterns: Vec<Regex>,
@@ -73,6 +95,7 @@ pub struct SecurityAnalyzer {
     crypto_stealer_patterns: Vec<Regex>,
     custom_hooks: Vec<CustomHook>,
     // Statistiques
+    // EN: Statistics
     total_analyzed: u64,
     total_threats: u64,
 }
@@ -80,9 +103,11 @@ pub struct SecurityAnalyzer {
 #[wasm_bindgen]
 impl SecurityAnalyzer {
     /// Crée une nouvelle instance de l'analyseur
+    /// EN: Creates a new instance of the analyzer
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         // Initialiser les patterns de détection
+        // EN: Initialize detection patterns
         let phishing_patterns = vec![
             Regex::new(r"(?i)login|signin|account|password|credential|verify|secure|banking").unwrap(),
             Regex::new(r"(?i)update.*(?:account|payment|billing)").unwrap(),
@@ -103,7 +128,7 @@ impl SecurityAnalyzer {
             Regex::new(r"(?i)(?:base64|btoa|atob).*(?:eval|Function|setTimeout)").unwrap(),
             Regex::new(r"(?i)(?:document\.cookie|navigator|screen|location)\s*=").unwrap(),
             Regex::new(r#"(?i)(?:String\.fromCharCode|\\x[0-9a-f]{2}){10,}"#).unwrap(),
-            Regex::new(r"(?i)new\s+Function\s*\(.*['\"].*['\"]\s*\)").unwrap(),
+            Regex::new(r#"(?i)new\s+Function\s*\(.*['"].*['"]\s*\)"#).unwrap(),
             Regex::new(r"(?i)(?:onerror|onload|onmouseover)\s*=\s*(?:eval|Function)").unwrap(),
         ];
 
@@ -114,6 +139,7 @@ impl SecurityAnalyzer {
         ];
 
         // Domaines de menace connus (liste compacte)
+        // EN: Known threat domains (compact list)
         let known_threat_domains: HashSet<String> = [
             "malware-site.xyz", "phishing-login.tk", "steal-info.gq",
             "fake-bank.ml", "crypto-scam.top", "ransomware.cf",
@@ -132,6 +158,8 @@ impl SecurityAnalyzer {
         }
     }
 
+    /// Crée un objet `Threat` à partir des paramètres fournis
+    /// EN: Create a `Threat` object from provided parameters
     fn new_threat(&self, category: &str, severity: &str, description: &str, matched_pattern: Option<String>) -> Threat {
         Threat {
             category: category.into(),
@@ -141,6 +169,8 @@ impl SecurityAnalyzer {
         }
     }
 
+    /// Détermine le niveau de menace textuel à partir du score
+    /// EN: Determine textual threat level from score
     fn threat_level_from_score(score: f64) -> &'static str {
         if score >= 0.7 {
             "CRITICAL"
@@ -155,6 +185,8 @@ impl SecurityAnalyzer {
         }
     }
 
+    /// Exécute les hooks personnalisés enregistrés
+    /// EN: Run registered custom hooks
     fn run_custom_hooks(&self, target: &str, text: &str, threats: &mut Vec<Threat>, risk_score: &mut f64) {
         for hook in &self.custom_hooks {
             if hook.target != target {
@@ -180,6 +212,8 @@ impl SecurityAnalyzer {
         }
     }
 
+    /// Prépare et retourne le `AnalysisResult` sérialisé en `JsValue`
+    /// EN: Prepare and return the `AnalysisResult` serialized as `JsValue`
     fn finalize_result(&mut self, risk_score: f64, threats: Vec<Threat>, content_hash: String, start: web_time::Instant) -> JsValue {
         let threat_level = Self::threat_level_from_score(risk_score).to_string();
         if !threats.is_empty() {
@@ -199,6 +233,7 @@ impl SecurityAnalyzer {
     }
 
     /// Analyse une URL complète
+    /// EN: Analyze a full URL
     pub fn analyze_url(&mut self, url_str: &str) -> JsValue {
         let start = web_time::Instant::now();
         self.total_analyzed += 1;
@@ -214,6 +249,7 @@ impl SecurityAnalyzer {
         }
 
         // Parser l'URL
+        // EN: Parse the URL
         if let Ok(parsed) = Url::parse(url_str) {
             let host = parsed.host_str().unwrap_or("");
             let path = parsed.path();
@@ -235,6 +271,7 @@ impl SecurityAnalyzer {
             }
 
             // 1. Vérification HTTPS
+            // EN: HTTPS check
             if parsed.scheme() != "https" && parsed.scheme() != "wss" {
                 threats.push(self.new_threat(
                     "connection",
@@ -257,6 +294,7 @@ impl SecurityAnalyzer {
             }
 
             // 3. Patterns malveillants dans l'URL
+            // EN: Malicious patterns in the URL
             for pattern in &self.malware_url_patterns {
                 if let Some(mat) = pattern.find(&full) {
                     threats.push(self.new_threat(
@@ -283,6 +321,7 @@ impl SecurityAnalyzer {
             }
 
             // 5. Sous-domaines suspects (ex: compte-paypal.xyz.com)
+            // EN: Suspicious subdomain count
             let subdomain_count = host.matches('.').count();
             if subdomain_count > 3 {
                 threats.push(self.new_threat(
@@ -295,6 +334,7 @@ impl SecurityAnalyzer {
             }
 
             // 6. URL raccourcie ou suspecte
+            // EN: Shortening or suspicious URL check
             let shortening_domains = ["bit.ly", "tinyurl.com", "goo.gl", "t.co", "shorturl.at"];
             if shortening_domains.iter().any(|d| host.contains(d)) {
                 threats.push(self.new_threat(
@@ -307,6 +347,7 @@ impl SecurityAnalyzer {
             }
 
             // 7. Adresse IP directe
+            // EN: Direct IP access check
             if let Ok(ip) = host.parse::<IpAddr>() {
                 threats.push(self.new_threat(
                     "ip_address",
@@ -329,6 +370,7 @@ impl SecurityAnalyzer {
         }
 
         // Calcul du hash du contenu (ici de l'URL elle-même)
+        // EN: Compute content hash (here the URL itself)
         let mut hasher = Sha256::new();
         hasher.update(url_str.as_bytes());
         let content_hash = format!("{:x}", hasher.finalize());

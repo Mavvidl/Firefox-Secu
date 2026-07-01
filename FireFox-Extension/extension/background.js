@@ -7,7 +7,8 @@ let analyzer = null;
 let wasmInitialized = false;
 let lastNotification = { url: '', timestamp: 0 };
 
-// Initialisation du module Wasm
+// FR: Initialisation du module WebAssembly et configuration initiale
+// EN: Initialize the WebAssembly module and perform initial configuration
 async function initWasm() {
     try {
         const wasm = await import('./lib/wasm_analyzer.js');
@@ -42,7 +43,8 @@ async function initWasm() {
     }
 }
 
-// Analyse une requête et retourne le résultat
+// FR: Analyse une requête HTTP avant l'envoi et stocke le résultat
+// EN: Analyze an HTTP request before send and store the result
 function analyzeRequest(details) {
     if (!wasmInitialized || !analyzer) return null;
     
@@ -67,7 +69,8 @@ function analyzeRequest(details) {
     }
 }
 
-// Analyse le contenu de la réponse (scripts, HTML)
+// FR: Analyse le contenu des réponses (scripts, HTML) pour détecter des patterns
+// EN: Analyze response content (scripts, HTML) to detect patterns
 function analyzeResponseContent(details, content) {
     if (!wasmInitialized || !analyzer) return;
     

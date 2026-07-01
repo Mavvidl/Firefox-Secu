@@ -192,3 +192,10 @@ footer {
 #engine-status {
     color: var(--accent-safe);
 }
+
+/*
+    FR: Variables CSS et styles pour le popup SecureWeb
+    EN: CSS variables and styles for the SecureWeb popup
+    Les classes `.threat-*` correspondent aux niveaux de menace (safe/low/medium/high/critical).
+    EN: The `.threat-*` classes map to threat levels (safe/low/medium/high/critical).
+*/

@@ -2,6 +2,8 @@
 // SecureWeb Analyzer — Popup Script
 // ==============================================================
 
+// FR: Initialisation du popup et récupération des données de l'onglet actif
+// EN: Popup initialization and retrieval of the active tab's data
 document.addEventListener('DOMContentLoaded', async () => {
     // État
     let currentTabId = null;
@@ -97,7 +99,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 });
 
-// Affiche le résultat d'analyse
+// FR: Affiche le résultat d'analyse dans l'interface du popup
+// EN: Render analysis result in the popup UI
 function displayAnalysisResult(result) {
     const threatLevelEl = document.getElementById('threat-level');
     const riskScoreEl = document.getElementById('risk-score');
@@ -106,6 +109,7 @@ function displayAnalysisResult(result) {
     const threatList = document.getElementById('threat-list');
     
     // Déterminer la classe CSS
+    // EN: Determine CSS class for threat level styling
     const level = (result.threat_level || 'SAFE').toLowerCase();
     let statusClass = 'threat-safe';
 
@@ -127,6 +131,7 @@ function displayAnalysisResult(result) {
     riskScoreEl.textContent = (result.risk_score * 100).toFixed(1) + '%';
     
     // Menaces
+    // EN: Build the list of detected threats for display
     const threats = result.threats || [];
     threatCountEl.textContent = threats.length;
     

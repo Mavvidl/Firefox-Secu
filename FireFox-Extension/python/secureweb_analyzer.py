@@ -11,23 +11,38 @@ from urllib.parse import urlparse
 
 
 @dataclass
+# FR: Structure représentant une menace détectée
+# EN: Structure representing a detected threat
 class Threat:
     category: str
+    # EN: category of the threat (e.g., 'phishing', 'malware')
     severity: str
+    # EN: severity level (e.g., 'low', 'medium', 'high', 'critical')
     description: str
+    # EN: human-readable description of the threat
     matched_pattern: Optional[str] = None
+    # EN: the regex or pattern that matched, if any
 
 
 @dataclass
+# FR: Résultat de l'analyse retourné par l'outil
+# EN: Analysis result returned by the tool
 class AnalysisResult:
     risk_score: float
+    # EN: normalized risk score between 0.0 and 1.0
     threat_level: str
+    # EN: textual threat level (SAFE/LOW/MEDIUM/HIGH/CRITICAL)
     threats: List[Threat]
+    # EN: list of individual threat records
     content_hash: str
+    # EN: SHA-256 hash of analyzed content
     analysis_time_us: int
+    # EN: analysis time in microseconds (approximate)
 
 
 class SecurityAnalyzer:
+    # FR: Analyseur principal ; contient les patterns et la logique
+    # EN: Main analyzer; holds detection patterns and analysis logic
     def __init__(self):
         self.enable_url_analysis = True
         self.enable_content_analysis = True
@@ -75,9 +90,13 @@ class SecurityAnalyzer:
         }
 
     def _hash(self, text: str) -> str:
+        # FR: Calcule un hash SHA-256 pour l'identification du contenu
+        # EN: Compute SHA-256 hash for content fingerprinting
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
     def _threat_level(self, score: float) -> str:
+        # FR: Convertit un score numérique en niveau textuel
+        # EN: Convert numeric score into textual threat level
         if score >= 0.7:
             return "CRITICAL"
         if score >= 0.4:
@@ -89,9 +108,13 @@ class SecurityAnalyzer:
         return "SAFE"
 
     def _make_threat(self, category: str, severity: str, description: str, matched_pattern: Optional[str] = None) -> Threat:
+        # FR: Fabricant d'objet Threat pour homogénéiser la création
+        # EN: Helper to construct a Threat object consistently
         return Threat(category=category, severity=severity, description=description, matched_pattern=matched_pattern)
 
     def analyze_url(self, url_str: str) -> AnalysisResult:
+        # FR: Analyse les caractéristiques d'une URL (hôte, schéma, patterns)
+        # EN: Analyze a URL's characteristics (host, scheme, patterns)
         if not self.enable_url_analysis:
             return AnalysisResult(
                 risk_score=0.0,
@@ -198,6 +221,8 @@ class SecurityAnalyzer:
         )
 
     def analyze_content(self, content: str) -> AnalysisResult:
+        # FR: Analyse le contenu complet d'une page (scripts, iframes, data URIs)
+        # EN: Analyze page content (scripts, iframes, data URIs)
         if not self.enable_content_analysis:
             return AnalysisResult(
                 risk_score=0.0,
@@ -283,6 +308,8 @@ class SecurityAnalyzer:
 
 
 def main() -> None:
+    # FR: Point d'entrée CLI pour utiliser l'analyseur en prototype
+    # EN: CLI entry point to run the analyzer prototype
     parser = argparse.ArgumentParser(description="Prototype SecureWeb Analyzer en Python")
     parser.add_argument("--url", help="URL à analyser")
     parser.add_argument("--content", help="Contenu texte à analyser")

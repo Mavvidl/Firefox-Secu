@@ -13,7 +13,8 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Vérifier les prérequis
+# FR: Vérifier les commandes nécessaires pour construire le projet
+# EN: Check required commands/tools to build the project
 echo -e "\n${YELLOW}📋 Vérification des prérequis...${NC}"
 
 if ! command -v cargo &> /dev/null; then
@@ -28,12 +29,14 @@ fi
 
 echo -e "${GREEN}✅ Prérequis OK${NC}"
 
-# Nettoyer l'ancien build
+# FR: Nettoyer les artefacts de build précédents
+# EN: Clean previous build artifacts
 echo -e "\n${YELLOW}🧹 Nettoyage...${NC}"
 rm -rf extension/lib/
 mkdir -p extension/lib/
 
-# Build du module Wasm
+# FR: Construire le module Rust -> Wasm via `wasm-pack`
+# EN: Build Rust -> Wasm module using `wasm-pack`
 echo -e "\n${YELLOW}🦀 Compilation Rust → Wasm...${NC}"
 cd src/rust
 
